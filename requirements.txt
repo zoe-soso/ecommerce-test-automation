@@ -1,0 +1,5 @@
+pytest==9.1.1
+playwright==1.62.0
+pytest-html==4.2.0
+allure-pytest==2.16.0
+PyMySQL==1.2.0
