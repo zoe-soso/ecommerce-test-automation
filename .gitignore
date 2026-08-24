@@ -1,6 +1,22 @@
-venv/
+# Python
 __pycache__/
-.pytest_cache/
-reports/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 测试产物
+reports/allure-results/
+reports/allure-report/
+reports/report.html
 screenshots/
+logs/
+*.log
+
+# 编辑器 / 系统
+.idea/
 .vscode/
+.DS_Store
+
+# 探针 / 临时脚本（非项目交付物）
+probe*.py

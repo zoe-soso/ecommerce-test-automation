@@ -1,0 +1,6 @@
+# ============================================
+# 测试环境
+# ============================================
+base_url: https://automationexercise.com
+browser: chromium
+timeout: 10000

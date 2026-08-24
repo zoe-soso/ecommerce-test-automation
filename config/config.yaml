@@ -1,0 +1,28 @@
+# ============================================
+# 共享默认配置（所有环境通用，会被具体环境文件覆盖）
+# 通过 utils.config_reader.load_config(env) 加载：
+#   先读取本文件，再用 config/{env}.yaml 覆盖同名键
+# ============================================
+
+# 默认被测站点
+base_url: https://automationexercise.com
+
+# 默认浏览器（可被具体环境文件覆盖；多浏览器由 conftest 参数化控制）
+browser: chromium
+
+# 是否无头模式
+headless: true
+
+# 元素操作默认超时（毫秒），会注入到 Playwright page 默认超时
+timeout: 30000
+
+# 测试失败时是否自动截图
+screenshot_on_failure: true
+
+# 数据库配置（可选，仅 P3 数据库校验用例使用；留空则相关用例自动跳过）
+database:
+  host: ""
+  port: 3306
+  user: ""
+  password: ""
+  database: ""

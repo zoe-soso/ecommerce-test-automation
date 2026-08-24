@@ -1,0 +1,23 @@
+cases:
+
+  - name: 添加商品到购物车
+
+    product:
+      Blue Top
+
+    expected:
+      Blue Top
+
+product:
+  name: Blue Top
+  price: "Rs. 500"
+
+# 默认加购（不修改数量，数量 = 1）时的预期
+default:
+  quantity: "1"
+  total: "Rs. 500"
+
+# 修改数量后的预期（数量 = 4）
+updated:
+  quantity: "4"
+  total: "Rs. 2000"

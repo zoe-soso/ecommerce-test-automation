@@ -1,0 +1,14 @@
+cases:
+
+  - name: 验证Blue Top商品详情
+
+    product:
+      Blue Top
+
+    expected:
+
+      name:
+        Blue Top
+
+      price:
+        Rs. 500

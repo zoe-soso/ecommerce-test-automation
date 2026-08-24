@@ -1,0 +1,10 @@
+cases:
+
+  - name: 搜索iPhone商品
+    keyword: iPhone
+    expected: SEARCHED PRODUCTS
+
+
+  - name: 搜索dress商品
+    keyword: dress
+    expected: SEARCHED PRODUCTS

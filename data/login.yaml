@@ -1,0 +1,12 @@
+cases:
+
+  - name: 正常账号登录
+    email: 123456@gmail.com
+    password: "123456"
+    expected: zoe
+
+
+  - name: 错误密码登录
+    email: 123456@gmail.com
+    password: wrong123
+    expected: error

@@ -1,0 +1,76 @@
+name: Ecommerce UI Automation Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 拉取代码
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. 配置 Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # 3. 安装 Python 依赖
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. 安装 Playwright 浏览器驱动（Chromium / Firefox / WebKit）
+      - name: Install Playwright browsers
+        run: |
+          playwright install --with-deps chromium firefox webkit
+
+      # 5. 下载上一次运行的 Allure history（用于趋势对比）
+      - name: Download previous Allure history
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: allure-history
+          path: previous-allure
+
+      - name: Restore Allure history
+        run: |
+          if [ -d previous-allure/history ]; then
+            mkdir -p reports/allure-results/history
+            cp -r previous-allure/history/* reports/allure-results/history/ || true
+          fi
+
+      # 6. 执行测试（默认覆盖三大浏览器，报告写入 reports/allure-results）
+      - name: Run tests
+        run: |
+          pytest -p no:cacheprovider
+
+      # 7. 生成 Allure 报告（合并历史趋势）
+      - name: Generate Allure report
+        run: |
+          npm install -g allure-commandline
+          allure generate reports/allure-results -o reports/allure-report --clean
+
+      # 8. 上传本次报告与 history（供下次运行与本地查看）
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: reports/allure-report
+          retention-days: 30
+
+      - name: Upload Allure history
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-history
+          path: reports/allure-results
+          retention-days: 30

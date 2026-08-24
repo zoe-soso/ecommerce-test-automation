@@ -1,0 +1,18 @@
+# 下单使用的登录账号（与 data/login.yaml 保持一致）
+account:
+  name: zoe
+  email: 123456@gmail.com
+  password: "123456"
+
+# 结算页收货地址中应包含的关键字（断言时统一转小写比较）
+expected_address:
+  - zoe
+  - united states
+
+# 支付表单数据（测试卡号，不会产生真实扣款）
+payment:
+  name_on_card: Zoe Test
+  card_number: "4111111111111111"
+  cvc: "311"
+  expiry_month: "12"
+  expiry_year: "2030"

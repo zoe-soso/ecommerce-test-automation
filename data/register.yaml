@@ -1,0 +1,17 @@
+# 注册第二步（账号信息）表单数据模板
+account_info:
+  password: "Password1"
+  days: "1"
+  months: "January"
+  years: "1990"
+  firstname: Auto
+  lastname: Tester
+  address1: "123 Automation Street"
+  country: "United States"
+  state: "California"
+  city: "Los Angeles"
+  zipcode: "90001"
+  mobile_number: "1234567890"
+
+# 已存在的邮箱（用于「邮箱重复」用例，与 data/login.yaml 保持一致）
+existing_email: 123456@gmail.com
