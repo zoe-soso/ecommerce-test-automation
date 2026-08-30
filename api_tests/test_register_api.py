@@ -2,10 +2,7 @@ import allure
 
 from faker import Faker
 
-from api.api_client import ApiClient
 
-
-client = ApiClient()
 fake = Faker()
 
 
@@ -33,14 +30,14 @@ def _random_account():
 
 @allure.feature("API 测试")
 @allure.story("账号注册接口")
-def test_create_account_success():
+def test_create_account_success(api_client):
     """使用随机数据注册新账号应成功（responseCode=201），并清理。"""
     account = _random_account()
-    resp = client.create_account(**account)
+    resp = api_client.create_account(**account)
     assert resp.json().get("responseCode") == 201
 
     # 测试后清理，避免污染站点数据
-    client.delete_account(
+    api_client.delete_account(
         account["email"],
         account["password"]
     )
@@ -48,15 +45,21 @@ def test_create_account_success():
 
 @allure.feature("API 测试")
 @allure.story("账号注册接口")
-def test_create_account_duplicate_email():
-    """重复邮箱注册应失败（responseCode=400）。"""
+def test_create_account_duplicate_email(api_client):
+    """
+    重复邮箱注册应失败（responseCode=400）。
+
+    用 try/finally 保证账号一定被清理，
+    否则断言失败时残留数据会污染后续运行。
+    """
     account = _random_account()
-    client.create_account(**account)
+    api_client.create_account(**account)
+
     try:
-        resp = client.create_account(**account)
+        resp = api_client.create_account(**account)
         assert resp.json().get("responseCode") == 400
     finally:
-        client.delete_account(
+        api_client.delete_account(
             account["email"],
             account["password"]
         )

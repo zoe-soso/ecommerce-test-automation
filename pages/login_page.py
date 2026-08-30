@@ -186,9 +186,16 @@ class LoginPage(BasePage):
 
 
     def is_email_exists_error(self):
-        """注册时邮箱已存在提示。"""
+        """
+        注册时邮箱已存在提示。
+
+        站点实际文案为 "Email Address already exist!"（并非
+        "Email already exists!"）。这里改用正则匹配并忽略大小写，
+        避免站点文案微调导致断言恒失败；提示为异步渲染，给足等待时间。
+        """
         return self.is_visible(
-            "text=Email already exists!"
+            "text=/email address already exist/i",
+            timeout=8000
         )
 
 

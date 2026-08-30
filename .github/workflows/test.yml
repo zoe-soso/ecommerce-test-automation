@@ -4,6 +4,12 @@ on:
   push:
     branches: [main, master]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      browsers:
+        description: "Browsers to run (comma separated, e.g. chromium or chromium,firefox,webkit)"
+        required: false
+        default: "chromium"
 
 jobs:
   e2e:
@@ -27,18 +33,51 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 4. 安装 Playwright 浏览器驱动（Chromium / Firefox / WebKit）
+      # 4. 安装 Playwright 浏览器驱动（CI 默认只装 chromium，避免首次运行过慢；workflow_dispatch 可指定多浏览器）
       - name: Install Playwright browsers
         run: |
-          playwright install --with-deps chromium firefox webkit
+          if [ -z "${{ github.event.inputs.browsers }}" ]; then
+            playwright install --with-deps chromium
+          else
+            playwright install --with-deps ${{ github.event.inputs.browsers }}
+          fi
 
-      # 5. 下载上一次运行的 Allure history（用于趋势对比）
+      # 5. 定位上一次成功的运行 ID
+      # actions/download-artifact@v4 默认只下载「当前 workflow run」的 artifact，
+      # 跨 run 下载必须显式给出 run-id 与 github-token；
+      # 少了这一步，每次拿到的都是空目录，Allure 趋势图永远是空的。
+      - name: Resolve last successful run
+        id: last_run
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          script: |
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'test.yml',
+              status: 'success',
+              per_page: 1
+            });
+            const list = runs.data.workflow_runs;
+            if (list.length > 0) {
+              core.setOutput('id', list[0].id);
+              core.info('last successful run: ' + list[0].id);
+            } else {
+              core.info('no previous successful run found');
+            }
+
+      # 6. 下载上一次运行的 Allure history（用于趋势对比）
+      # 没有历史记录时 continue-on-error 让 Job 不会因此失败
       - name: Download previous Allure history
+        if: steps.last_run.outputs.id != ''
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           name: allure-history
           path: previous-allure
+          run-id: ${{ steps.last_run.outputs.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Restore Allure history
         run: |
@@ -47,18 +86,30 @@ jobs:
             cp -r previous-allure/history/* reports/allure-results/history/ || true
           fi
 
-      # 6. 执行测试（默认覆盖三大浏览器，报告写入 reports/allure-results）
+      # 7. 执行测试
+      # CI 默认只跑 chromium，速度快且稳定；本地或 workflow_dispatch 可触发多浏览器回归
+      # 用 -o addopts= 覆盖 pytest.ini 里硬编码的多浏览器，避免浏览器参数重复叠加
       - name: Run tests
+        id: pytest
+        env:
+          BROWSERS: ${{ github.event.inputs.browsers || 'chromium' }}
         run: |
-          pytest -p no:cacheprovider
+          BASE_OPTS="-vs --reruns 1 --reruns-delay 2 --html=reports/report.html --self-contained-html --alluredir=reports/allure-results"
+          if [ "$BROWSERS" = "chromium,firefox,webkit" ]; then
+            pytest -p no:cacheprovider -o addopts="$BASE_OPTS" --browser chromium --browser firefox --browser webkit
+          else
+            pytest -p no:cacheprovider -o addopts="$BASE_OPTS" --browser chromium
+          fi
+        continue-on-error: true
 
-      # 7. 生成 Allure 报告（合并历史趋势）
+      # 8. 生成 Allure 报告（测试失败也要生成，否则看不到失败详情）
       - name: Generate Allure report
+        if: always()
         run: |
           npm install -g allure-commandline
           allure generate reports/allure-results -o reports/allure-report --clean
 
-      # 8. 上传本次报告与 history（供下次运行与本地查看）
+      # 9. 上传产物（失败时也能拿到截图、日志、Allure 报告）
       - name: Upload Allure report
         if: always()
         uses: actions/upload-artifact@v4
@@ -72,5 +123,26 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: allure-history
-          path: reports/allure-results
+          path: reports/allure-results/history
           retention-days: 30
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots/
+          retention-days: 14
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: logs/
+          retention-days: 14
+
+      # 10. 最终判定：如果 pytest 失败，整个 Job 也标红
+      - name: Check pytest result
+        if: steps.pytest.outcome == 'failure'
+        run: exit 1

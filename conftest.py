@@ -1,14 +1,28 @@
 import re
 import allure
-import urllib.parse
-import urllib.request
 
 from datetime import datetime
 
 import pytest
 
+from api.api_client import ApiClient
 from utils.logger import logger
 from utils.config_reader import load_config
+from utils.env_guard import ensure_clean_proxy_env
+
+
+# ===============================
+# 启动前环境处理
+# ===============================
+
+def pytest_configure(config):
+    """
+    测试启动前清理「指向本机」的代理环境变量。
+
+    本地代理软件未启动时会让 requests 全部报 ProxyError，
+    表现为接口用例整片报红，这里统一在框架入口处理掉。
+    """
+    ensure_clean_proxy_env()
 
 
 # ===============================
@@ -39,49 +53,44 @@ TEST_ACCOUNT = {
 
 @pytest.fixture(scope="session")
 def ensure_test_account():
-    """会话级幂等预建测试账号（已存在则视为正常跳过）。"""
+    """会话级幂等预建测试账号（已存在则视为正常跳过）。
+
+    统一复用 api/api_client.py 的 ApiClient，
+    与接口测试保持同一套请求实现，避免 urllib / requests 两套写法并存。
+    """
 
     cfg = load_config()
-    base_url = cfg.get(
-        "base_url",
-        "https://automationexercise.com"
-    )
 
-    url = f"{base_url}/api/createAccount"
-
-    body = urllib.parse.urlencode(
-        TEST_ACCOUNT
-    ).encode()
-
-    request = urllib.request.Request(
-        url,
-        data=body,
-        headers={
-            "User-Agent": "Mozilla/5.0",
-            "Content-Type": (
-                "application/x-www-form-urlencoded"
-            ),
-            "Accept": "application/json",
-        }
+    client = ApiClient(
+        cfg.get(
+            "base_url",
+            "https://automationexercise.com"
+        )
     )
 
     try:
 
-        with urllib.request.urlopen(
-            request,
-            timeout=20
-        ) as resp:
+        resp = client.create_account(
+            **TEST_ACCOUNT
+        )
+
+        body = resp.json()
+        code = body.get("responseCode")
+
+        if code == 201:
 
             logger.info(
-                f"预建测试账号: {resp.read().decode()}"
+                f"预建测试账号成功: {body.get('message')}"
             )
 
-    except urllib.error.HTTPError as e:
+        else:
 
-        # 400 = Email already exists，属正常情况
-        logger.info(
-            f"预建测试账号(已存在/跳过): {e.code}"
-        )
+            # 400 = Email already exists，属正常情况
+            logger.info(
+                "预建测试账号(已存在/跳过): "
+                f"HTTP {resp.status_code}, "
+                f"responseCode={code}"
+            )
 
     except Exception as e:
 

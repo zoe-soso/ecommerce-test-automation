@@ -25,6 +25,13 @@ class ApiClient:
     ):
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
+
+        # 接口测试客户端不读取任何代理配置：
+        # 本地代理软件未启动时 requests 会全部报 ProxyError，
+        # 表现为接口用例整片报红，极易被误判成代码问题。
+        # 环境变量层面另由 utils/env_guard.py 清理指向本机的代理。
+        self.session.trust_env = False
+
         self.session.headers.update(
             {
                 "Accept": "application/json",
