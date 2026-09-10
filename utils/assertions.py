@@ -9,7 +9,6 @@
        只需在此一处扩展。
 """
 
-import logging
 
 from utils.logger import logger
 

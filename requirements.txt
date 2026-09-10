@@ -7,3 +7,4 @@ pytest-rerunfailures==14.0
 PyYAML==6.0.2
 requests==2.32.3
 faker==30.0.0
+ruff==0.16.6

@@ -249,6 +249,7 @@ checkout 代码
 
 ## Known Issues & Next Steps
 
+- **已定位的不稳定用例（2026-09-09 复跑数据）**：CI 常态（Chromium 单内核）25 条中稳定通过 21 条，4 条存在偶发失败 —— `test_api_ui_register`、`test_cart`、`test_cart_multi`、`test_checkout`。根因统一：被测公共站点（automationexercise.com）首屏会加载广告 iframe 与懒加载脚本，点击「商品详情 / 加入购物车」后页面导航完成判定被拖住，Playwright 报 `waiting for scheduled navigations to finish` 超时。**属被测环境干扰，非框架缺陷**。后续优化方向：显式等待目标元素替代导航完成判定、登录态用 `storage_state` 复用以减少前置导航、对这 4 条单独统计 flaky 率。
 - **`--reruns 1` 会掩盖 flaky**：失败重跑能提升 CI 通过率，但也会隐藏不稳定用例；后续应统计 flaky 用例并单独告警，而不是静默重试。
 - **接口断言层次偏浅**：目前覆盖到 HTTP 状态码、业务响应码、字段非空三层，尚未做 JSON Schema 契约校验、异常入参与响应时间断言。
 - **环境切换尚未外提**：`load_config(env)` 仍以默认参数加载，计划接入 `--env` 命令行选项。

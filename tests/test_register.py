@@ -9,8 +9,7 @@ from utils.config_reader import load_config
 from utils.data_reader import load_yaml
 from utils.assertions import (
     assert_true,
-    assert_false,
-    assert_contains
+    assert_false
 )
 
 

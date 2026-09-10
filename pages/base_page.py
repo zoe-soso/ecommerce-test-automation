@@ -143,22 +143,6 @@ class BasePage:
 
         element.press(key)
 
-    def is_visible(self, locator):
-
-        try:
-
-            self.page.locator(locator).wait_for(
-                state="visible",
-                timeout=3000
-            )
-
-            return True
-
-        except Exception:
-
-            return False
-
-
     def is_visible(
         self,
         locator,
