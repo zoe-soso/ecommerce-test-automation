@@ -7,6 +7,7 @@ from api.api_client import ApiClient
 
 from utils.config_reader import load_config
 from utils.assertions import assert_true
+from utils.account_data import unique_email
 
 
 fake = Faker()
@@ -29,10 +30,10 @@ def test_api_create_then_ui_login(
     界面验证则保证端到端业务流程真实可用。
     """
 
-    client = ApiClient()
+    client = ApiClient(config["base_url"])
 
     name = fake.first_name()
-    email = fake.email()
+    email = unique_email()
     password = "Password1"
 
     account = {
@@ -56,10 +57,11 @@ def test_api_create_then_ui_login(
     }
 
     # ---- API Layer：创建账号 ----
-    create_resp = client.create_account(**account)
-    assert create_resp.json().get("responseCode") == 201
-
+    created = False
     try:
+        create_resp = client.create_account(**account)
+        created = create_resp.json().get("responseCode") == 201
+        assert created, "测试账号创建失败"
 
         # ---- UI Test：用界面登录并校验 ----
         login_page = LoginPage(page_context)
@@ -78,4 +80,6 @@ def test_api_create_then_ui_login(
     finally:
 
         # 测试后清理账号
-        client.delete_account(email, password)
+        if created:
+            cleanup = client.delete_account(email, password)
+            assert cleanup.json().get("responseCode") == 200, "测试账号清理失败"

@@ -1,6 +1,7 @@
 import allure
 
 from faker import Faker
+from utils.account_data import unique_email
 
 
 fake = Faker()
@@ -9,7 +10,7 @@ fake = Faker()
 def _random_account():
     return {
         "name": fake.first_name(),
-        "email": fake.email(),
+        "email": unique_email(),
         "password": "Password1",
         "title": "Mr",
         "birth_date": "1",
@@ -33,14 +34,19 @@ def _random_account():
 def test_create_account_success(api_client):
     """使用随机数据注册新账号应成功（responseCode=201），并清理。"""
     account = _random_account()
-    resp = api_client.create_account(**account)
-    assert resp.json().get("responseCode") == 201
+    created = False
+    try:
+        resp = api_client.create_account(**account)
+        created = resp.json().get("responseCode") == 201
+        assert created, "测试账号创建失败"
+    finally:
+        if created:
+            cleanup = api_client.delete_account(account["email"], account["password"])
+            assert cleanup.json().get("responseCode") == 200, "测试账号清理失败"
 
-    # 测试后清理，避免污染站点数据
-    api_client.delete_account(
-        account["email"],
-        account["password"]
-    )
+    # 不只检查清理接口有响应，还验证该账号已经不能登录。
+    deleted = api_client.verify_login(account["email"], account["password"])
+    assert deleted.json().get("responseCode") == 404
 
 
 @allure.feature("API 测试")
@@ -53,13 +59,14 @@ def test_create_account_duplicate_email(api_client):
     否则断言失败时残留数据会污染后续运行。
     """
     account = _random_account()
-    api_client.create_account(**account)
-
+    created = False
     try:
+        first = api_client.create_account(**account)
+        created = first.json().get("responseCode") == 201
+        assert created, "重复注册用例的前置账号创建失败"
         resp = api_client.create_account(**account)
         assert resp.json().get("responseCode") == 400
     finally:
-        api_client.delete_account(
-            account["email"],
-            account["password"]
-        )
+        if created:
+            cleanup = api_client.delete_account(account["email"], account["password"])
+            assert cleanup.json().get("responseCode") == 200, "测试账号清理失败"

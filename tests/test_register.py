@@ -4,6 +4,8 @@ import pytest
 from faker import Faker
 
 from pages.login_page import LoginPage
+from api.api_client import ApiClient
+from utils.account_data import unique_email
 
 from utils.config_reader import load_config
 from utils.data_reader import load_yaml
@@ -43,7 +45,8 @@ fake = Faker()
 )
 def test_register(
     page_context,
-    case
+    case,
+    request,
 ):
     """
     注册模块覆盖：
@@ -66,7 +69,17 @@ def test_register(
 
     if name == "正常注册":
 
-        email = fake.email()
+        email = unique_email()
+        account_created = False
+
+        def cleanup_account():
+            response = ApiClient(config["base_url"]).delete_account(
+                email, data["account_info"]["password"]
+            )
+            code = response.json().get("responseCode")
+            assert code == 200 if account_created else code in (200, 404), "测试账号清理失败"
+
+        request.addfinalizer(cleanup_account)
 
         with allure.step(
             "填写注册信息并提交"
@@ -87,20 +100,11 @@ def test_register(
         with allure.step(
             "校验注册成功"
         ):
+            account_created = login_page.is_account_created()
             assert_true(
-                login_page.is_account_created(),
+                account_created,
                 "正常注册应显示 ACCOUNT CREATED!"
             )
-
-        # 通过 UI 删除账号，避免污染站点数据
-        # （公开练习站点的 /api/deleteAccount 接口当前返回 405，故用界面删除）
-        try:
-            login_page.page.goto(
-                config["base_url"] + "/delete_account"
-            )
-            login_page.page.wait_for_timeout(1500)
-        except Exception:
-            pass
 
     elif name == "邮箱重复":
 

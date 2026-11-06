@@ -75,8 +75,8 @@ class ApiClient:
         )
 
     def delete_account(self, email: str, password: str):
-        """删除账号 POST /api/deleteAccount（用于测试后清理）"""
-        return self.session.post(
+        """删除账号 DELETE /api/deleteAccount（用于测试后清理）。"""
+        return self.session.delete(
             f"{self.base_url}/api/deleteAccount",
             data={"email": email, "password": password},
             timeout=20,
