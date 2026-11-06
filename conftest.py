@@ -1,4 +1,6 @@
 import re
+import os
+from pathlib import Path
 import allure
 
 from datetime import datetime
@@ -83,20 +85,23 @@ def ensure_test_account():
                 f"预建测试账号成功: {body.get('message')}"
             )
 
-        else:
+        elif code == 400 and "email" in str(body.get("message", "")).lower() and "exist" in str(body.get("message", "")).lower():
 
-            # 400 = Email already exists，属正常情况
             logger.info(
                 "预建测试账号(已存在/跳过): "
                 f"HTTP {resp.status_code}, "
                 f"responseCode={code}"
             )
 
+        else:
+            pytest.fail(
+                f"测试账号准备失败：HTTP {resp.status_code}, responseCode={code}",
+                pytrace=False,
+            )
+
     except Exception as e:
 
-        logger.warning(
-            f"预建测试账号失败: {e}"
-        )
+        pytest.fail(f"测试账号准备失败：{type(e).__name__}: {e}", pytrace=False)
 
     yield
 
@@ -107,9 +112,8 @@ def ensure_test_account():
 # 说明：pytest-playwright 通过 --browser 选项（可多次指定）
 #       自动对 browser_name 做参数化。本项目在 pytest.ini 的
 #       addopts 中写入三个 --browser，使 `pytest` 默认即覆盖
-#       三大内核，用例数由 10 扩展到 30。
-#       若只想跑单浏览器，可单独指定：
-#           pytest --browser chromium
+#       三大内核（19 条 UI × 3 + 6 条 API）。单浏览器需先覆盖 addopts：
+#           pytest -o addopts= --browser chromium
 
 # ===============================
 # 页面生命周期
@@ -125,12 +129,21 @@ def page_context(page):
 
     cfg = load_config()
 
+    if cfg.get("block_external_noise", True):
+        page.context.route(
+            re.compile(
+                r"^https?://(?:[a-z0-9-]+\.)*(?:doubleclick\.net|googlesyndication\.com|"
+                r"fundingchoicesmessages\.google\.com|fonts\.googleapis\.com|fonts\.gstatic\.com)/"
+            ),
+            lambda route: route.abort(),
+        )
+
     try:
         page.set_default_timeout(
             int(cfg.get("timeout", 30000))
         )
         page.set_default_navigation_timeout(
-            int(cfg.get("timeout", 30000))
+            int(cfg.get("navigation_timeout", 60000))
         )
     except Exception:
         pass
@@ -198,14 +211,14 @@ def pytest_runtest_makereport(item):
                     r"[^a-zA-Z0-9_]", "_", item.name
                 )
 
-                path = (
-                    f"screenshots/"
-                    f"{test_name}_{timestamp}.png"
-                )
+                screenshot_dir = Path(os.getenv("TEST_ARTIFACT_DIR", ".")) / "screenshots"
+                screenshot_dir.mkdir(parents=True, exist_ok=True)
+                path = str(screenshot_dir / f"{test_name}_{timestamp}.png")
 
                 page.screenshot(
                     path=path,
-                    full_page=True
+                    full_page=False,
+                    timeout=10000,
                 )
 
                 with open(path, "rb") as f:

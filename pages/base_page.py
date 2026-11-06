@@ -33,6 +33,9 @@ class BasePage:
 
         logger.info(f"点击元素:{locator}")
 
+        # 上一步可能通过页面内链接导航，先等脚本绑定好再点击。
+        self.page.wait_for_load_state("domcontentloaded")
+
         element = self.page.locator(locator)
 
         element.wait_for(
@@ -40,15 +43,15 @@ class BasePage:
         timeout=timeout
         )
 
-        element.click()
+        element.click(timeout=timeout)
+        # 导航提交后元素可能已出现，但页面脚本还未绑定事件。
+        self.page.wait_for_load_state("domcontentloaded")
 
 
     def fill(self, locator, text):
         text = str(text)
         
-        logger.info(
-        f"输入:{text}"
-        )
+        logger.info(f"填写元素:{locator}")
         
         element = self.page.locator(locator)
 

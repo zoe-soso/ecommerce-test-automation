@@ -10,6 +10,19 @@ on:
         description: "Browsers to run (comma separated, e.g. chromium or chromium,firefox,webkit)"
         required: false
         default: "chromium"
+        type: choice
+        options:
+          - chromium
+          - firefox
+          - webkit
+          - chromium,firefox,webkit
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  BROWSERS: ${{ github.event.inputs.browsers || 'chromium' }}
 
 jobs:
   e2e:
@@ -33,14 +46,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Lint
+        run: ruff check .
+
+      - name: Framework regression tests
+        run: python -m pytest unit_tests -o addopts= -p no:cacheprovider -q
+
       # 4. 安装 Playwright 浏览器驱动（CI 默认只装 chromium，避免首次运行过慢；workflow_dispatch 可指定多浏览器）
       - name: Install Playwright browsers
         run: |
-          if [ -z "${{ github.event.inputs.browsers }}" ]; then
-            playwright install --with-deps chromium
-          else
-            playwright install --with-deps ${{ github.event.inputs.browsers }}
-          fi
+          IFS=',' read -ra browsers <<< "$BROWSERS"
+          for browser in "${browsers[@]}"; do
+            case "$browser" in chromium|firefox|webkit) ;; *) exit 1 ;; esac
+          done
+          playwright install --with-deps "${browsers[@]}"
 
       # 5. 定位上一次成功的运行 ID
       # actions/download-artifact@v4 默认只下载「当前 workflow run」的 artifact，
@@ -81,9 +100,13 @@ jobs:
 
       - name: Restore Allure history
         run: |
+          HISTORY_DIR=previous-allure
           if [ -d previous-allure/history ]; then
+            HISTORY_DIR=previous-allure/history
+          fi
+          if compgen -G "$HISTORY_DIR/*.json" > /dev/null; then
             mkdir -p reports/allure-results/history
-            cp -r previous-allure/history/* reports/allure-results/history/ || true
+            cp "$HISTORY_DIR/"*.json reports/allure-results/history/
           fi
 
       # 7. 执行测试
@@ -91,15 +114,12 @@ jobs:
       # 用 -o addopts= 覆盖 pytest.ini 里硬编码的多浏览器，避免浏览器参数重复叠加
       - name: Run tests
         id: pytest
-        env:
-          BROWSERS: ${{ github.event.inputs.browsers || 'chromium' }}
         run: |
           BASE_OPTS="-vs --reruns 1 --reruns-delay 2 --html=reports/report.html --self-contained-html --alluredir=reports/allure-results"
-          if [ "$BROWSERS" = "chromium,firefox,webkit" ]; then
-            pytest -p no:cacheprovider -o addopts="$BASE_OPTS" --browser chromium --browser firefox --browser webkit
-          else
-            pytest -p no:cacheprovider -o addopts="$BASE_OPTS" --browser chromium
-          fi
+          IFS=',' read -ra browsers <<< "$BROWSERS"
+          args=()
+          for browser in "${browsers[@]}"; do args+=(--browser "$browser"); done
+          pytest -p no:cacheprovider -o addopts="$BASE_OPTS" "${args[@]}"
         continue-on-error: true
 
       # 8. 生成 Allure 报告（测试失败也要生成，否则看不到失败详情）
@@ -123,7 +143,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: allure-history
-          path: reports/allure-results/history
+          path: reports/allure-report/history
           retention-days: 30
 
       - name: Upload screenshots

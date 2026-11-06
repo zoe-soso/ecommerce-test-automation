@@ -15,6 +15,10 @@ headless: true
 
 # 元素操作默认超时（毫秒），会注入到 Playwright page 默认超时
 timeout: 30000
+navigation_timeout: 60000
+
+# 练习站的第三方广告和字体不参与业务断言；排查原始页面时可设为 false。
+block_external_noise: true
 
 # 测试失败时是否自动截图
 screenshot_on_failure: true

@@ -1,12 +1,13 @@
 import logging
+import os
 from pathlib import Path
 
 from datetime import datetime
 
 
-LOG_PATH = Path("logs")
+LOG_PATH = Path(os.getenv("TEST_ARTIFACT_DIR", ".")) / "logs"
 
-LOG_PATH.mkdir(exist_ok=True)
+LOG_PATH.mkdir(parents=True, exist_ok=True)
 
 # 每次运行生成独立日志文件，避免 Windows 下多次运行对同一文件加锁冲突
 RUN_STAMP = datetime.now().strftime(
